@@ -18,6 +18,7 @@ export const P5Canvas: FC<{}> = () => {
   useEffect(() => {
     on_theta_pos((twist) => {
       theta_pos.current = twist;
+      // console.log("Theta Pos:", theta_pos.current);
     });
 
     on_path((msg) => {
@@ -102,7 +103,24 @@ export const P5Canvas: FC<{}> = () => {
   const draw = (p5: p5Types) => {
     p5.background("lightgray");
     p5.translate(cam_x, cam_y);
-    p5.image(map, 0, 0, map.width, map.height);
+    p5.scale(-1, 1);
+
+    p5.push();
+    p5.scale(-1, 1);
+    p5.image(map, -map.width, 0, map.width, map.height);
+    p5.pop();
+
+    // Coordinate System
+    p5.strokeWeight(5);
+    p5.stroke(255, 0, 0);
+    p5.line(0, 0, 20, 0);
+
+    p5.stroke(0, 255, 0);
+    p5.line(0, 0, 0, 20);
+
+    p5.strokeWeight(10);
+    p5.stroke(0, 0, 255);
+    p5.point(0, 0);
 
     path.current?.poses.forEach((point, index) => {
       if (path.current.poses[index + 1]) {
@@ -125,8 +143,8 @@ export const P5Canvas: FC<{}> = () => {
     if (theta_pos.current) {
       const line_length = 20;
 
-      const x1 = theta_pos.current.linear.y / 10;
-      const y1 = theta_pos.current.linear.x / 10;
+      const x1 = theta_pos.current.linear.x / 10;
+      const y1 = theta_pos.current.linear.y / 10;
       const x2 = x1 + p5.cos(p5.degrees(theta_pos.current.angular.z)) * line_length;
       const y2 = y1 + p5.sin(p5.degrees(theta_pos.current.angular.z)) * line_length;
 
