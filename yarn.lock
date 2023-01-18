@@ -7430,6 +7430,11 @@ qs@6.11.0:
   dependencies:
     side-channel "^1.0.4"
 
+quaternion@^1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/quaternion/-/quaternion-1.4.0.tgz#7a2b92bd094af82a04846a9244f97b1fcda82b0f"
+  integrity sha512-SIUOOoFbJOiu8vftqHsT7W1eH8YEDTpup00/Yj67Rx0CYq4bslH+T+bkt0Z7idQqk17U9aYfDCp4l5v7t/9Sxg==
+
 querystringify@^2.1.1:
   version "2.2.0"
   resolved "https://registry.yarnpkg.com/querystringify/-/querystringify-2.2.0.tgz#3345941b4153cb9d082d8eee4cda2016a9aef7f6"
