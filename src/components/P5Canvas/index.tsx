@@ -50,6 +50,33 @@ export const P5Canvas: FC<{}> = () => {
       path.current = msg as Path;
     });
 
+    on_status((status) => {
+      const status_container = document.getElementById("status_container");
+
+      status.values.forEach((key_val) => {
+        let key = document.getElementById(key_val.key);
+        if (!key) {
+          key = document.createElement("span");
+          key.id = key_val.key;
+          status_container.appendChild(key);
+        }
+        key.innerText = key_val.key
+          .split("_")
+          .map((word) => {
+            return word[0].toUpperCase() + word.substring(1);
+          })
+          .join(" ");
+
+        let value = document.getElementById(key_val.key + "_val");
+        if (!value) {
+          value = document.createElement("span");
+          value.id = key_val.key + "_val";
+          status_container.appendChild(value);
+        }
+        value.innerText = key_val.value;
+      });
+    });
+
     return () => {
       ros.removeAllListeners();
       ros.close();
@@ -207,6 +234,9 @@ export const P5Canvas: FC<{}> = () => {
     if (p5.frameCount % 10 === 0) {
       document.getElementById("fps").innerText = p5.frameRate().toFixed(1);
       document.getElementById("point_count").innerText = path.current?.poses.length.toString();
+      document.getElementById("orientation").innerText = p5.degrees(euler.yaw + p5.PI).toFixed(2);
+      document.getElementById("pos_x").innerText = theta_pos.current.position.x.toFixed(0);
+      document.getElementById("pos_y").innerText = theta_pos.current.position.y.toFixed(0);
     }
   };
 
