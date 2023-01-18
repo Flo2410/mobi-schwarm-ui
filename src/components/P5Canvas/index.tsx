@@ -1,12 +1,28 @@
 import { FC, useEffect, useRef } from "react";
 import Sketch from "react-p5";
 import p5Types from "p5";
-import { add_waypoint, on_path, on_theta_pos, ros } from "../../helper/rosbridge";
-import { Path, PoseStamped, Twist } from "../../types/roslib.type";
+import {
+  add_waypoint,
+  on_imu,
+  on_path,
+  on_status,
+  on_theta_pos,
+  ros,
+} from "../../helper/rosbridge";
+import { Path, PoseStamped } from "../../types/roslib.type";
+import { Pose, Quaternion as RosQuaternion, Vector3 } from "roslib";
+import Quaternion from "quaternion";
+
+const SCALE = 13;
 
 export const P5Canvas: FC<{}> = () => {
   const path = useRef<Path>();
-  const theta_pos = useRef<Twist>();
+  const theta_pos = useRef<Pose>(
+    new Pose({
+      orientation: new RosQuaternion({ w: 1, x: 0, y: 0, z: 0 }),
+      position: new Vector3({ x: 0, y: 0, z: 0 }),
+    })
+  );
 
   let cam_x = 0;
   let cam_y = 0;
@@ -17,8 +33,17 @@ export const P5Canvas: FC<{}> = () => {
 
   useEffect(() => {
     on_theta_pos((twist) => {
-      theta_pos.current = twist;
-      // console.log("Theta Pos:", theta_pos.current);
+      theta_pos.current = new Pose({
+        ...theta_pos.current,
+        ...{ position: twist.linear },
+      });
+    });
+
+    on_imu((quaternion) => {
+      theta_pos.current = new Pose({
+        ...theta_pos.current,
+        ...{ orientation: quaternion },
+      });
     });
 
     on_path((msg) => {
@@ -36,17 +61,19 @@ export const P5Canvas: FC<{}> = () => {
   };
 
   const on_mouse_pressed = (p5: p5Types) => {
-    mouse_x_offset = p5.mouseX - cam_x;
-    mouse_y_offset = p5.mouseY - cam_y;
+    if (document.elementFromPoint(p5.mouseX, p5.mouseY).tagName !== "CANVAS") return;
+
+    mouse_x_offset = p5.mouseY - cam_x;
+    mouse_y_offset = p5.mouseX - cam_y;
 
     if (p5.mouseButton === p5.LEFT) {
       // find point to drag
       const point = path.current?.poses.filter(
         (p) =>
-          p.pose.position.x > mouse_x_offset - 5 &&
-          p.pose.position.x < mouse_x_offset + 5 &&
-          p.pose.position.y > mouse_y_offset - 5 &&
-          p.pose.position.y < mouse_y_offset + 5
+          p.pose.position.x / SCALE > mouse_x_offset - 5 &&
+          p.pose.position.x / SCALE < mouse_x_offset + 5 &&
+          p.pose.position.y / SCALE > mouse_y_offset - 5 &&
+          p.pose.position.y / SCALE < mouse_y_offset + 5
       )[0];
 
       if (point) {
@@ -60,7 +87,7 @@ export const P5Canvas: FC<{}> = () => {
         mouse_y_offset > 0 &&
         mouse_y_offset < map.height
       ) {
-        point_to_drag = add_waypoint(mouse_x_offset, mouse_y_offset);
+        point_to_drag = add_waypoint(mouse_x_offset * SCALE, mouse_y_offset * SCALE);
       }
     } else if (p5.mouseButton === p5.RIGHT) {
       p5.cursor(p5.MOVE);
@@ -83,11 +110,11 @@ export const P5Canvas: FC<{}> = () => {
 
       if (!path.current.poses[index]) return;
 
-      path.current.poses[index].pose.position.x = p5.mouseX - cam_x;
-      path.current.poses[index].pose.position.y = p5.mouseY - cam_y;
+      path.current.poses[index].pose.position.x = (p5.mouseY - cam_x) * SCALE;
+      path.current.poses[index].pose.position.y = (p5.mouseX - cam_y) * SCALE;
     } else if (p5.mouseButton === p5.RIGHT) {
-      cam_x = p5.mouseX - mouse_x_offset;
-      cam_y = p5.mouseY - mouse_y_offset;
+      cam_x = p5.mouseY - mouse_x_offset;
+      cam_y = p5.mouseX - mouse_y_offset;
     }
   };
 
@@ -96,14 +123,17 @@ export const P5Canvas: FC<{}> = () => {
     p5.createCanvas(p5.windowWidth, p5.windowHeight).parent(canvasParentRef);
     canvasParentRef.addEventListener("contextmenu", (e) => e.preventDefault());
 
-    cam_x = (p5.windowWidth - map.width) / 2;
-    cam_y = (p5.windowHeight - map.height) / 2;
+    // cam_x = p5.windowHeight / 2;
+    // cam_y = p5.windowWidth / 2;
+    cam_x = (p5.windowHeight - map.width) / 2;
+    cam_y = (p5.windowWidth - map.height) / 2;
   };
 
   const draw = (p5: p5Types) => {
     p5.background("lightgray");
-    p5.translate(cam_x, cam_y);
     p5.scale(-1, 1);
+    p5.translate(-cam_y, cam_x);
+    p5.rotate(p5.HALF_PI);
 
     p5.push();
     p5.scale(-1, 1);
@@ -127,26 +157,42 @@ export const P5Canvas: FC<{}> = () => {
         p5.strokeWeight(4);
         p5.stroke(255, 0, 0);
         p5.line(
-          point.pose.position.x,
-          point.pose.position.y,
-          path.current.poses[index + 1].pose.position.x,
-          path.current.poses[index + 1].pose.position.y
+          point.pose.position.x / SCALE,
+          point.pose.position.y / SCALE,
+          path.current.poses[index + 1].pose.position.x / SCALE,
+          path.current.poses[index + 1].pose.position.y / SCALE
         );
       }
 
       p5.strokeWeight(10);
       p5.stroke(0, 0, 0);
-      p5.point(point.pose.position.x, point.pose.position.y);
+      const x = point.pose.position.x / SCALE;
+      const y = point.pose.position.y / SCALE;
+      p5.point(x, y);
+
+      p5.push();
+      p5.strokeWeight(1);
+      p5.scale(-1, 1);
+      p5.rotate(p5.HALF_PI);
+      p5.text(index, y + 10, x);
+      p5.pop();
     });
 
     // Update pose of robots
     if (theta_pos.current) {
       const line_length = 20;
 
-      const x1 = theta_pos.current.linear.x / 10;
-      const y1 = theta_pos.current.linear.y / 10;
-      const x2 = x1 + p5.cos(p5.degrees(theta_pos.current.angular.z)) * line_length;
-      const y2 = y1 + p5.sin(p5.degrees(theta_pos.current.angular.z)) * line_length;
+      const x1 = theta_pos.current.position.x / SCALE;
+      const y1 = theta_pos.current.position.y / SCALE;
+      var euler = new Quaternion(
+        theta_pos.current.orientation.w,
+        theta_pos.current.orientation.x,
+        theta_pos.current.orientation.y,
+        theta_pos.current.orientation.z
+      ).toEuler();
+
+      const x2 = x1 + p5.sin(euler.yaw) * line_length;
+      const y2 = y1 + p5.cos(euler.yaw) * line_length;
 
       p5.strokeWeight(4);
       p5.stroke(255, 0, 0);
