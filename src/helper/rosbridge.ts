@@ -1,6 +1,6 @@
-import { Message, Pose, Ros, Topic } from "roslib";
+import { Message, Pose, Quaternion, Ros, Topic } from "roslib";
 import { v4 as uuidv4 } from "uuid";
-import { PoseStamped, Twist } from "../types/roslib.type";
+import { DiagnosticStatus, PoseStamped, Twist } from "../types/roslib.type";
 
 export const ros = new Ros({
   url: "ws://10.56.42.202:9090",
@@ -37,6 +37,24 @@ export const on_path = (cb: (msg: Message) => void) => {
   sub.subscribe(cb);
 };
 
+export const on_imu = (cb: (msg: Quaternion) => void) => {
+  const sub = new Topic({
+    ros,
+    name: "/theta/imu",
+    messageType: "geometry_msgs/Quaternion",
+  });
+  sub.subscribe(cb);
+};
+
+export const on_status = (cb: (msg: DiagnosticStatus) => void) => {
+  const sub = new Topic({
+    ros,
+    name: "/theta/status",
+    messageType: "diagnostic_msgs/DiagnosticStatus",
+  });
+  sub.subscribe(cb);
+};
+
 export const add_waypoint = (x: number, y: number) => {
   const pub = new Topic({
     ros: ros,
@@ -68,4 +86,13 @@ export const clear_path = () => {
     messageType: "std_msgs/Empty",
   });
   pub.publish({});
+};
+
+export const drive = (drive: boolean) => {
+  const pub = new Topic({
+    ros,
+    name: "/theta/drive",
+    messageType: "std_msgs/Bool",
+  });
+  pub.publish({ data: drive });
 };
