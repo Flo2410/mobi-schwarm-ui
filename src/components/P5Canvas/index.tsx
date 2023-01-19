@@ -24,6 +24,9 @@ export const P5Canvas: FC<{}> = () => {
     })
   );
 
+  const do_drive = useRef(false);
+  const current_target_index = useRef(0);
+
   let cam_x = 0;
   let cam_y = 0;
   let mouse_x_offset = 0;
@@ -74,6 +77,12 @@ export const P5Canvas: FC<{}> = () => {
           status_container.appendChild(value);
         }
         value.innerText = key_val.value;
+
+        // Updated refs
+        if (key_val.key === "do_drive")
+          do_drive.current = key_val.value.toLocaleLowerCase() === "true";
+        else if (key_val.key === "current_target_index")
+          current_target_index.current = +key_val.value;
       });
     });
 
@@ -228,8 +237,17 @@ export const P5Canvas: FC<{}> = () => {
       p5.strokeWeight(10);
       p5.stroke(0, 255, 255);
       p5.point(x1, y1);
-    }
 
+      // Draw line to current_target_index
+      if (path.current?.poses.length > current_target_index.current) {
+        const {
+          pose: { position: current_point_pos },
+        } = path.current.poses[current_target_index.current];
+        p5.strokeWeight(2);
+        p5.stroke(0, 255, 0);
+        p5.line(x1, y1, current_point_pos.x / SCALE, current_point_pos.y / SCALE);
+      }
+    }
     // Update stats display
     if (p5.frameCount % 10 === 0) {
       document.getElementById("fps").innerText = p5.frameRate().toFixed(1);
