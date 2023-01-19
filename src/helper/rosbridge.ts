@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from "uuid";
 import { DiagnosticStatus, PoseStamped, Twist } from "../types/roslib.type";
 
 export const ros = new Ros({
-  url: "ws://10.56.42.202:9090",
+  // url: "ws://10.56.42.202:9090",
+  url: "ws://192.168.0.121:9090",
 });
 
 ros.on("connection", () => {
@@ -27,6 +28,16 @@ export const on_theta_pos = (cb: (twist: Twist) => void) => {
   sub.subscribe(cb);
 };
 
+export const on_tau_pos = (cb: (twist: Twist) => void) => {
+  const sub = new Topic({
+    ros: ros,
+    name: "/tau/pozyx",
+    messageType: "geometry_msgs/Twist",
+  });
+
+  sub.subscribe(cb);
+};
+
 export const on_path = (cb: (msg: Message) => void) => {
   const sub = new Topic({
     ros: ros,
@@ -37,10 +48,19 @@ export const on_path = (cb: (msg: Message) => void) => {
   sub.subscribe(cb);
 };
 
-export const on_imu = (cb: (msg: Quaternion) => void) => {
+export const on_theta_imu = (cb: (msg: Quaternion) => void) => {
   const sub = new Topic({
     ros,
     name: "/theta/imu",
+    messageType: "geometry_msgs/Quaternion",
+  });
+  sub.subscribe(cb);
+};
+
+export const on_tau_imu = (cb: (msg: Quaternion) => void) => {
+  const sub = new Topic({
+    ros,
+    name: "/tau/imu",
     messageType: "geometry_msgs/Quaternion",
   });
   sub.subscribe(cb);

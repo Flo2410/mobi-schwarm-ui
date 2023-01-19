@@ -3,11 +3,13 @@ import Sketch from "react-p5";
 import p5Types from "p5";
 import {
   add_waypoint,
-  on_imu,
+  on_theta_imu,
   on_path,
   on_status,
   on_theta_pos,
   ros,
+  on_tau_pos,
+  on_tau_imu,
 } from "../../helper/rosbridge";
 import { Path, PoseStamped } from "../../types/roslib.type";
 import { Pose, Quaternion as RosQuaternion, Vector3 } from "roslib";
@@ -18,6 +20,12 @@ const SCALE = 13;
 export const P5Canvas: FC<{}> = () => {
   const path = useRef<Path>();
   const theta_pos = useRef<Pose>(
+    new Pose({
+      orientation: new RosQuaternion({ w: 1, x: 0, y: 0, z: 0 }),
+      position: new Vector3({ x: 0, y: 0, z: 0 }),
+    })
+  );
+  const tau_pos = useRef<Pose>(
     new Pose({
       orientation: new RosQuaternion({ w: 1, x: 0, y: 0, z: 0 }),
       position: new Vector3({ x: 0, y: 0, z: 0 }),
@@ -42,9 +50,23 @@ export const P5Canvas: FC<{}> = () => {
       });
     });
 
-    on_imu((quaternion) => {
+    on_tau_pos((twist) => {
+      tau_pos.current = new Pose({
+        ...tau_pos.current,
+        ...{ position: twist.linear },
+      });
+    });
+
+    on_theta_imu((quaternion) => {
       theta_pos.current = new Pose({
         ...theta_pos.current,
+        ...{ orientation: quaternion },
+      });
+    });
+
+    on_tau_imu((quaternion) => {
+      tau_pos.current = new Pose({
+        ...tau_pos.current,
         ...{ orientation: quaternion },
       });
     });
@@ -206,6 +228,7 @@ export const P5Canvas: FC<{}> = () => {
       const y = point.pose.position.y / SCALE;
       p5.point(x, y);
 
+      // Draw lable for point
       p5.push();
       p5.strokeWeight(1);
       p5.scale(-1, 1);
@@ -216,27 +239,7 @@ export const P5Canvas: FC<{}> = () => {
 
     // Update pose of robots
     if (theta_pos.current) {
-      const line_length = 20;
-
-      const x1 = theta_pos.current.position.x / SCALE;
-      const y1 = theta_pos.current.position.y / SCALE;
-      var euler = new Quaternion(
-        theta_pos.current.orientation.w,
-        theta_pos.current.orientation.x,
-        theta_pos.current.orientation.y,
-        theta_pos.current.orientation.z
-      ).toEuler();
-
-      const x2 = x1 + p5.sin(euler.yaw) * line_length;
-      const y2 = y1 + p5.cos(euler.yaw) * line_length;
-
-      p5.strokeWeight(4);
-      p5.stroke(255, 0, 0);
-      p5.line(x1, y1, x2, y2);
-
-      p5.strokeWeight(10);
-      p5.stroke(0, 255, 255);
-      p5.point(x1, y1);
+      draw_robot(p5, theta_pos.current, "Θ", { r: 32, g: 239, b: 11 });
 
       // Draw line to current_target_index
       if (path.current?.poses.length > current_target_index.current) {
@@ -245,17 +248,64 @@ export const P5Canvas: FC<{}> = () => {
         } = path.current.poses[current_target_index.current];
         p5.strokeWeight(2);
         p5.stroke(0, 255, 0);
-        p5.line(x1, y1, current_point_pos.x / SCALE, current_point_pos.y / SCALE);
+        p5.line(
+          theta_pos.current.position.x / SCALE,
+          theta_pos.current.position.y / SCALE,
+          current_point_pos.x / SCALE,
+          current_point_pos.y / SCALE
+        );
       }
     }
     // Update stats display
     if (p5.frameCount % 10 === 0) {
       document.getElementById("fps").innerText = p5.frameRate().toFixed(1);
       document.getElementById("point_count").innerText = path.current?.poses.length.toString();
-      document.getElementById("orientation").innerText = p5.degrees(euler.yaw + p5.PI).toFixed(2);
       document.getElementById("pos_x").innerText = theta_pos.current.position.x.toFixed(0);
       document.getElementById("pos_y").innerText = theta_pos.current.position.y.toFixed(0);
     }
+
+    if (tau_pos.current) {
+      draw_robot(p5, tau_pos.current, "τ", { r: 105, g: 4, b: 155 });
+    }
+  };
+
+  const draw_robot = (
+    p5: p5Types,
+    robot_pose: Pose,
+    lable: string,
+    color: { r: number; g: number; b: number }
+  ) => {
+    const line_length = 20;
+
+    const x1 = robot_pose.position.x / SCALE;
+    const y1 = robot_pose.position.y / SCALE;
+    var euler = new Quaternion(
+      robot_pose.orientation.w,
+      robot_pose.orientation.x,
+      robot_pose.orientation.y,
+      robot_pose.orientation.z
+    ).toEuler();
+
+    const x2 = x1 + p5.sin(euler.yaw) * line_length;
+    const y2 = y1 + p5.cos(euler.yaw) * line_length;
+
+    // Line
+    p5.strokeWeight(4);
+    p5.stroke(238, 0, 255);
+    p5.line(x1, y1, x2, y2);
+
+    // Point
+    p5.strokeWeight(10);
+    p5.stroke(color.r, color.g, color.b);
+    p5.point(x1, y1);
+
+    // Lable
+    p5.push();
+    p5.strokeWeight(1);
+    p5.scale(-1, 1);
+    p5.rotate(p5.HALF_PI);
+    p5.text(lable, y1 + 10, x1);
+    p5.pop();
   };
 
   return (
