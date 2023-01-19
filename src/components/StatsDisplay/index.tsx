@@ -12,12 +12,6 @@ export const StatsDisplay = () => {
         <span>Point Count</span>
         <span id="point_count">0</span>
 
-        <span>Orientation</span>
-        <div>
-          <span id="orientation"></span>
-          <span>°</span>
-        </div>
-
         <span>Position</span>
         <div>
           <span className="mr-1">x:</span>
